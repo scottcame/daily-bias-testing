@@ -42,7 +42,12 @@ def is_sweep(row):
     return (row['high'] > row['highLag'] and row['close'] < row['highLag']) or (row['low'] < row['lowLag'] and row['close'] > row['lowLag'])
 
 def compute_bias(row):
-    if is_inside(row):
+    if is_outside(row):
+        if row['close'] > row['low'] + (row['high'] - row['low']) / 2:
+            return 'up'
+        else:
+            return 'down'
+    elif is_inside(row):
         rangeMidpoint = row['lowLag'] + (row['highLag'] - row['lowLag'])/2
         if row['close'] > rangeMidpoint:
             return 'up'
@@ -67,11 +72,8 @@ ohlc['sweep'] = ohlc.apply(is_sweep, axis=1)
 
 def compute_result(row):
     if is_outside(row):
-        if row['close'] > row['low'] + (row['high'] - row['low']) / 2:
-            return 'up'
-        else:
-            return 'down'
-    if row['low'] < row['lowLag']:
+        return 'outside'
+    elif row['low'] < row['lowLag']:
         return 'down'
     elif row['high'] > row['highLag']:
         return 'up'
@@ -86,7 +88,7 @@ ohlc = ohlc.drop(columns=[col for col in ohlc.columns if col.endswith('Lag')])
 
 print(ohlc.tail(50))
 
-print("correct bias percentage: {:.2f}%".format(100*(ohlc['result']==ohlc['bias']).sum() / len(ohlc)))
+print("correct bias percentage: {:.2f}%".format(100*((ohlc['result']==ohlc['bias']) | (ohlc['result']=='outside')).sum() / len(ohlc)))
 print("inside bars: {:.2f}%".format(100*ohlc['inside'].sum() / len(ohlc)))
 print("outside bars: {:.2f}%".format(100*ohlc['outside'].sum() / len(ohlc)))
 print("sweep reversal bars: {:.2f}%".format(100*ohlc['sweep'].sum() / len(ohlc)))
