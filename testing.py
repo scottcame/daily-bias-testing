@@ -86,9 +86,16 @@ ohlc['result'] = ohlc.apply(compute_result, axis=1)
 
 ohlc = ohlc.drop(columns=[col for col in ohlc.columns if col.endswith('Lag')])
 
-print(ohlc.tail(50))
+# print(ohlc.tail(50))
 
 print("correct bias percentage: {:.2f}%".format(100*((ohlc['result']==ohlc['bias']) | (ohlc['result']=='outside')).sum() / len(ohlc)))
 print("inside bars: {:.2f}%".format(100*ohlc['inside'].sum() / len(ohlc)))
+
+tdf = ohlc[ohlc['inside']]
+print("inside bars correct bias percentage: {:.2f}%".format(100*((tdf['result']==tdf['bias']) | (tdf['result']=='outside')).sum() / len(tdf)))
+
+tdf = ohlc[ohlc['inside']==False]
+print("non-inside bars correct bias percentage: {:.2f}%".format(100*((tdf['result']==tdf['bias']) | (tdf['result']=='outside')).sum() / len(tdf)))
+
 print("outside bars: {:.2f}%".format(100*ohlc['outside'].sum() / len(ohlc)))
 print("sweep reversal bars: {:.2f}%".format(100*ohlc['sweep'].sum() / len(ohlc)))
