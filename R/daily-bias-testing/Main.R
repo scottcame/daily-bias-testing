@@ -1,6 +1,8 @@
 library(tidyverse)
 library(lubridate)
 library(tidyquant)
+library(caret)
+library(nnet)
 
 options(pillar.sigfig=8)
 
@@ -36,9 +38,16 @@ tdf <- rawDf %>%
   ) %>% tq_mutate(
     select=hlRange, mutate_fun = SMA, n=10, col_rename=c('SMA'='ADR')
   ) %>% filter(row_number() != 1) %>% mutate(
+    result=case_when(
+      high <= lead(high) & low >= lead(low) ~ 'outside',
+      high <= lead(high) ~ 'up',
+      low >= lead(low) ~ 'down',
+      .default = 'inside'
+    ),
     win = (bias=='up' & high <= lead(high)) | (bias=='down' & low >= lead(low)),
     lose = (bias=='up' & high > lead(high) & low > lead(low)) | (bias=='down' & low < lead(low) & high < lead(high)),
-    volatile = hlRange > ADR
+    volatile = hlRange > ADR,
+    biasSideWickAdrPct=(if_else(bias=='up', upperWick, lowerWick) * hlRange / ADR)
   ) %>% filter(row_number() != n())
 
 # main winrate analysis
@@ -50,5 +59,15 @@ tdf %>% group_by(inside, outside, sweep, spinningTop) %>% summarize(loserate=mea
 
 tdf %>% mutate(y=year(d)) %>% group_by(y) %>% summarize(winrate=mean(win), cnt=n()) %>% arrange(y) %>% print(n=50)
 
+# logistic regression of win
+model <- glm(win ~ biasSideWickAdrPct + sweep + outside + inside + spinningTop, data = tdf, family = binomial)
 
+# multinomial logistic regression of result
+model <- multinom(result ~ biasSideWickAdrPct + sweep + outside + inside + spinningTop, data = tdf %>% mutate(result=relevel(as.factor(result), ref='inside')))
+summary(model)
+z <- summary(model)$coefficients/summary(model)$standard.errors
+p <- (1 - pnorm(abs(z), 0, 1)) * 2
+p
+
+predicted_classes <- predict(model, newdata = tdf)
 
